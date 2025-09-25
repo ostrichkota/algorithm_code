@@ -1,6 +1,6 @@
 from typing import List, Tuple
-# from local_driver import Alg3D, Board # ローカル検証用
-from framework import Alg3D, Board # 本番用
+from local_driver import Alg3D, Board # ローカル検証用
+# from framework import Alg3D, Board # 本番用
 
 class MyAI(Alg3D):
     def get_move(
@@ -12,7 +12,7 @@ class MyAI(Alg3D):
         # 基本的なAIアルゴリズムを実装
         return self.find_best_move(board, player)
     
-    def find_best_move(self, board: Board, player: int) -> Tuple[int, int]:
+    def find_best_move(self, board: Board, player: int):
         """最適な手を見つける"""
         # 1. 勝利できる手があるかチェック
         win_move = self.find_winning_move(board, player)
@@ -33,7 +33,7 @@ class MyAI(Alg3D):
         # 4. 空いている最初の位置に置く
         return self.find_first_available_move(board)
     
-    def find_winning_move(self, board: Board, player: int) -> Tuple[int, int]:
+    def find_winning_move(self, board: Board, player: int):
         """勝利できる手を探す"""
         for x in range(4):
             for y in range(4):
@@ -47,7 +47,7 @@ class MyAI(Alg3D):
                         return (x, y)
         return None
     
-    def find_center_move(self, board: Board) -> Tuple[int, int]:
+    def find_center_move(self, board: Board):
         """中央付近の空いている位置を探す"""
         center_positions = [(1, 1), (1, 2), (2, 1), (2, 2), (0, 1), (1, 0), (2, 3), (3, 2)]
         
@@ -56,7 +56,7 @@ class MyAI(Alg3D):
                 return (x, y)
         return None
     
-    def find_first_available_move(self, board: Board) -> Tuple[int, int]:
+    def find_first_available_move(self, board: Board):
         """最初に見つかった空いている位置に置く"""
         for x in range(4):
             for y in range(4):
@@ -64,18 +64,18 @@ class MyAI(Alg3D):
                     return (x, y)
         return (0, 0)  # フォールバック
     
-    def can_place_stone(self, board: Board, x: int, y: int) -> bool:
+    def can_place_stone(self, board: Board, x: int, y: int):
         """指定位置に石を置けるかチェック"""
         return board[3][y][x] == 0  # 最上段が空いているか
     
-    def get_height(self, board: Board, x: int, y: int) -> int:
+    def get_height(self, board: Board, x: int, y: int):
         """指定位置の現在の高さを取得"""
         for z in range(4):
             if board[z][y][x] == 0:
                 return z
         return 4  # 満杯
     
-    def check_win(self, board: Board, x: int, y: int, z: int, player: int) -> bool:
+    def check_win(self, board: Board, x: int, y: int, z: int, player: int):
         """指定位置で勝利条件を満たしているかチェック"""
         # 6方向の直線をチェック
         directions = [
