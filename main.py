@@ -305,7 +305,45 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 4. 合計
+        # 4. ダブルリーチ報酬
+        print("\n4️⃣ ダブルリーチ報酬 (2個目以降=2n点):")
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
+                    double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
+                    if double_reach_lines >= 2:
+                        bonus = 0
+                        for i in range(1, double_reach_lines):  # 2個目から計算
+                            bonus += 2 * (i + 1)
+                        print(f"+{bonus:2d}", end=" ")
+                    else:
+                        print("  0", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
+        
+        # 5. ダブルリーチ妨害
+        print("\n5️⃣ ダブルリーチ妨害 (2個目以降=2n点):")
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
+                    opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
+                    if opponent_double_reach_lines >= 2:
+                        bonus = 0
+                        for i in range(1, opponent_double_reach_lines):  # 2個目から計算
+                            bonus += 2 * (i + 1)
+                        print(f"+{bonus:2d}", end=" ")
+                    else:
+                        print("  0", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
+        
+        # 6. 合計
         print("\n🎯 合計点数:")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
@@ -458,6 +496,133 @@ class MyAI(Alg3D):
         
         return own_stones
     
+    def count_double_reach_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置に石を置いた時に、自分の石が2個以上あるアクセスライン数をカウント"""
+        double_reach_lines = 0
+        
+        # 13方向の直線をチェック
+        directions = [
+            (1, 0, 0),   # x軸方向
+            (0, 1, 0),   # y軸方向
+            (0, 0, 1),   # z軸方向
+            (1, 1, 0),   # xy対角線
+            (1, 0, 1),   # xz対角線
+            (0, 1, 1),   # yz対角線
+            (1, 1, 1),   # xyz対角線
+            (1, -1, 0),  # xy逆対角線
+            (1, 0, -1),  # xz逆対角線
+            (0, 1, -1),  # yz逆対角線
+            (1, -1, -1), # xyz逆対角線
+            (1, 1, -1),  # xy正、z負対角線
+            (1, -1, 1),  # xy負、z正対角線
+        ]
+        
+        for dx, dy, dz in directions:
+            # 正方向の最大距離と障害物チェック
+            max_pos = 0
+            for i in range(1, 4):
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 他のプレイヤーの石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                        break
+                    max_pos = i
+                else:
+                    break
+            
+            # 負方向の最大距離と障害物チェック
+            max_neg = 0
+            for i in range(1, 4):
+                nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 他のプレイヤーの石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                        break
+                    max_neg = i
+                else:
+                    break
+            
+            # 合計で4つ以上並べるかチェック
+            if max_pos + max_neg + 1 >= 4:
+                # このライン上で自分の石をカウント（自分を置く位置も含む）
+                own_count = 1  # 自分を置く位置
+                for i in range(-max_neg, max_pos + 1):
+                    if i == 0:
+                        continue  # 自分の位置は既にカウント済み
+                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                        if board[nz][ny][nx] == player:
+                            own_count += 1
+                
+                # 自分の石が2個以上あるラインをカウント
+                if own_count >= 2:
+                    double_reach_lines += 1
+        
+        return double_reach_lines
+    
+    def count_opponent_double_reach_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置に石を置いた時に、相手の石が2個以上あるアクセスライン数をカウント"""
+        opponent = 3 - player
+        opponent_double_reach_lines = 0
+        
+        # 13方向の直線をチェック
+        directions = [
+            (1, 0, 0),   # x軸方向
+            (0, 1, 0),   # y軸方向
+            (0, 0, 1),   # z軸方向
+            (1, 1, 0),   # xy対角線
+            (1, 0, 1),   # xz対角線
+            (0, 1, 1),   # yz対角線
+            (1, 1, 1),   # xyz対角線
+            (1, -1, 0),  # xy逆対角線
+            (1, 0, -1),  # xz逆対角線
+            (0, 1, -1),  # yz逆対角線
+            (1, -1, -1), # xyz逆対角線
+            (1, 1, -1),  # xy正、z負対角線
+            (1, -1, 1),  # xy負、z正対角線
+        ]
+        
+        for dx, dy, dz in directions:
+            # 正方向の最大距離と障害物チェック
+            max_pos = 0
+            for i in range(1, 4):
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 自分の石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != opponent:
+                        break
+                    max_pos = i
+                else:
+                    break
+            
+            # 負方向の最大距離と障害物チェック
+            max_neg = 0
+            for i in range(1, 4):
+                nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 自分の石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != opponent:
+                        break
+                    max_neg = i
+                else:
+                    break
+            
+            # 合計で4つ以上並べるかチェック
+            if max_pos + max_neg + 1 >= 4:
+                # このライン上で相手の石をカウント
+                opponent_count = 0
+                for i in range(-max_neg, max_pos + 1):
+                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                        if board[nz][ny][nx] == opponent:
+                            opponent_count += 1
+                
+                # 相手の石が2個以上あるラインをカウント
+                if opponent_count >= 2:
+                    opponent_double_reach_lines += 1
+        
+        return opponent_double_reach_lines
+    
     def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置の重み（点数）を計算"""
         score = 0
@@ -486,6 +651,18 @@ class MyAI(Alg3D):
             score += 2  # 角 = 2点ボーナス
         elif (x == 1 or x == 2) and (y == 1 or y == 2):  # 中央の4マス
             score += 2  # 中央 = 2点ボーナス
+        
+        # 4. ダブルリーチ報酬（自分の石が2個以上あるラインが複数ある場合）
+        double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
+        if double_reach_lines >= 2:  # 2個目以降は2n点加点
+            for i in range(1, double_reach_lines):  # 2個目から計算
+                score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
+        
+        # 5. ダブルリーチ妨害（相手の石が2個以上あるラインが複数ある場合）
+        opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
+        if opponent_double_reach_lines >= 2:  # 2個目以降は2n点加点
+            for i in range(1, opponent_double_reach_lines):  # 2個目から計算
+                score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
         
         return score
     
