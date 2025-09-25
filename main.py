@@ -306,7 +306,7 @@ class MyAI(Alg3D):
             print()
         
         # 4. ダブルリーチ報酬
-        print("\n4️⃣ ダブルリーチ報酬 (2個目以降=2n点):")
+        print("\n4️⃣ ダブルリーチ報酬 (2個目以降=100点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
@@ -314,9 +314,7 @@ class MyAI(Alg3D):
                     z = self.get_height(board, x, y)
                     double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
                     if double_reach_lines >= 2:
-                        bonus = 0
-                        for i in range(1, double_reach_lines):  # 2個目から計算
-                            bonus += 2 * (i + 1)
+                        bonus = (double_reach_lines - 1) * 100  # 2個目以降=100点
                         print(f"+{bonus:2d}", end=" ")
                     else:
                         print("  0", end=" ")
@@ -325,7 +323,7 @@ class MyAI(Alg3D):
             print()
         
         # 5. ダブルリーチ妨害
-        print("\n5️⃣ ダブルリーチ妨害 (2個目以降=2n点):")
+        print("\n5️⃣ ダブルリーチ妨害 (2個目以降=100点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
@@ -333,9 +331,7 @@ class MyAI(Alg3D):
                     z = self.get_height(board, x, y)
                     opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
                     if opponent_double_reach_lines >= 2:
-                        bonus = 0
-                        for i in range(1, opponent_double_reach_lines):  # 2個目から計算
-                            bonus += 2 * (i + 1)
+                        bonus = (opponent_double_reach_lines - 1) * 100  # 2個目以降=100点
                         print(f"+{bonus:2d}", end=" ")
                     else:
                         print("  0", end=" ")
@@ -747,21 +743,21 @@ class MyAI(Alg3D):
         
         # 4. ダブルリーチ報酬（自分の石が2個以上あるラインが複数ある場合）
         double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
-        if double_reach_lines >= 2:  # 2個目以降は2n点加点
+        if double_reach_lines >= 2:  # 2個目以降は100点加点
             for i in range(1, double_reach_lines):  # 2個目から計算
                 if is_my_turn:
-                    score += 2 * (i + 1)  # 自分の手: 2個目=4点, 3個目=6点, 4個目=8点...
+                    score += 100  # 自分の手: 2個目以降=100点
                 else:
-                    score += 1.5 * (i + 1)  # 相手の手: 2個目=3点, 3個目=4.5点, 4個目=6点...
+                    score += 80   # 相手の手: 2個目以降=80点（少し低く）
         
         # 5. ダブルリーチ妨害（相手の石が2個以上あるラインが複数ある場合）
         opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
-        if opponent_double_reach_lines >= 2:  # 2個目以降は2n点加点
+        if opponent_double_reach_lines >= 2:  # 2個目以降は100点加点
             for i in range(1, opponent_double_reach_lines):  # 2個目から計算
                 if is_my_turn:
-                    score += 2 * (i + 1)  # 自分の手: 2個目=4点, 3個目=6点, 4個目=8点...
+                    score += 100  # 自分の手: 2個目以降=100点
                 else:
-                    score += 1.5 * (i + 1)  # 相手の手: 2個目=3点, 3個目=4.5点, 4個目=6点...
+                    score += 80   # 相手の手: 2個目以降=80点（少し低く）
         
         # 6. 罠回避（統合版：勝利手と最大点数を100点換算で減点）
         opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
