@@ -99,9 +99,13 @@ class MyAI(Alg3D):
         
         return accessible_lines
     
-    def get_accessible_directions(self, board: Board, x: int, y: int, z: int, player: int) -> List[Tuple[int, int, int]]:
-        """指定位置に石を置いた時に、アクセス可能な方向の配列を返す"""
-        accessible_directions = []
+    def classify_directions(self, board: Board, x: int, y: int, z: int, player: int) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+        """指定位置に石を置いた時に、方向を3つに分類して返す"""
+        my_accessible_directions = []  # 自分のアクセスライン（自分の石しかないか空）
+        opponent_accessible_directions = []  # 相手のアクセスライン（相手の石しかない）
+        mixed_directions = []  # 混在ライン（自分の石と相手の石が混在）
+        
+        opponent = 3 - player
         
         # 13方向の直線をチェック
         directions = [
@@ -123,11 +127,12 @@ class MyAI(Alg3D):
         for dx, dy, dz in directions:
             # 正方向の最大距離と障害物チェック
             max_pos = 0
+            has_opponent_stone = False
             for i in range(1, 4):
                 nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
                 if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                    # 他のプレイヤーの石がある場合はラインを断ち切る
-                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                    if board[nz][ny][nx] == opponent:
+                        has_opponent_stone = True
                         break
                     max_pos = i
                 else:
@@ -138,8 +143,8 @@ class MyAI(Alg3D):
             for i in range(1, 4):
                 nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
                 if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                    # 他のプレイヤーの石がある場合はラインを断ち切る
-                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                    if board[nz][ny][nx] == opponent:
+                        has_opponent_stone = True
                         break
                     max_neg = i
                 else:
@@ -147,9 +152,70 @@ class MyAI(Alg3D):
             
             # 合計で4つ以上並べるかチェック
             if max_pos + max_neg + 1 >= 4:
-                accessible_directions.append((dx, dy, dz))
+                # ライン上の石の種類をチェック
+                my_stones = 0
+                opponent_stones = 0
+                
+                for i in range(-max_neg, max_pos + 1):
+                    if i == 0:
+                        continue  # 自分の位置はスキップ
+                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                        if board[nz][ny][nx] == player:
+                            my_stones += 1
+                        elif board[nz][ny][nx] == opponent:
+                            opponent_stones += 1
+                
+                # 分類
+                if my_stones > 0 and opponent_stones > 0:
+                    mixed_directions.append((dx, dy, dz))
+                elif my_stones > 0:
+                    my_accessible_directions.append((dx, dy, dz))
+                elif opponent_stones > 0:
+                    opponent_accessible_directions.append((dx, dy, dz))
+                else:
+                    my_accessible_directions.append((dx, dy, dz))  # 空のラインは自分のアクセスライン
         
-        return accessible_directions
+        return my_accessible_directions, opponent_accessible_directions, mixed_directions
+    
+    def get_accessible_directions(self, board: Board, x: int, y: int, z: int, player: int) -> List[Tuple[int, int, int]]:
+        """指定位置に石を置いた時に、アクセス可能な方向の配列を返す（後方互換性のため）"""
+        my_accessible, _, _ = self.classify_directions(board, x, y, z, player)
+        return my_accessible
+    
+    def count_stones_in_directions(self, board: Board, x: int, y: int, z: int, directions: List[Tuple[int, int, int]], target_player: int) -> int:
+        """指定された方向リスト内で、対象プレイヤーの石の数をカウント"""
+        stone_count = 0
+        
+        for dx, dy, dz in directions:
+            # 正方向の最大距離を計算
+            max_pos = 0
+            for i in range(1, 4):
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    max_pos = i
+                else:
+                    break
+            
+            # 負方向の最大距離を計算
+            max_neg = 0
+            for i in range(1, 4):
+                nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    max_neg = i
+                else:
+                    break
+            
+            # この方向の対象プレイヤーの石をカウント
+            for i in range(-max_neg, max_pos + 1):
+                if i == 0:
+                    continue  # 自分の位置はスキップ
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    if board[nz][ny][nx] == target_player:
+                        stone_count += 1
+        
+        return stone_count
     
     def count_potential_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置に石を置いた時に、4つ並ぶ可能性があるライン数をカウント"""
@@ -428,14 +494,14 @@ class MyAI(Alg3D):
                 else:
                     break
             
-            # このライン上で相手の石をカウント
-            for i in range(-max_neg, max_pos + 1):
-                if i == 0:
-                    continue  # 自分の位置はスキップ
-                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                    if board[nz][ny][nx] == opponent:
-                        opponent_stones += 1
+                # このライン上で相手の石をカウント
+                for i in range(-max_neg, max_pos + 1):
+                    if i == 0:
+                        continue  # 自分の位置はスキップ
+                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                        if board[nz][ny][nx] == opponent:
+                            opponent_stones += 1
         
         return opponent_stones
     
@@ -631,66 +697,80 @@ class MyAI(Alg3D):
         # depth別の重み設定
         is_my_turn = (depth % 2 == 0)  # 自分の手（depth偶数）か相手の手（depth奇数）か
         
+        # 減衰率の計算
+        decay_rate = 0.8 ** depth  # depth=0: 1.0, depth=1: 0.8
+        
         # 1. アクセス可能なライン数による基本点
         lines = self.count_potential_lines(board, x, y, z, player)
+        score += lines * 2 * decay_rate  # 1ライン = 2点 * 減衰率
+        
+        # 2. 方向別の石の数計算と重み付け
+        my_accessible, opponent_accessible, mixed = self.classify_directions(board, x, y, z, player)
+        
+        # 2-1. 自分のアクセスライン上の自分の石の数加点
+        my_stones = self.count_stones_in_directions(board, x, y, z, my_accessible, player)
         if is_my_turn:
-            score += lines * 2  # 自分の手: 1ライン = 2点
+            score += my_stones * 2 * decay_rate  # 自分の手: 自分の石1個 = 2点 * 減衰率
         else:
-            score += lines * 2   # 相手の手: 1ライン = 2点（同じ重み）
+            score += my_stones * 2 * decay_rate  # 相手の手: 自分の石1個 = 2点 * 減衰率
         
-        # 2. アクセスライン上の自分の石の数加点（石の数*2）
-        own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
-        if is_my_turn:
-            score += own_stones * 2  # 自分の手: 自分の石1個 = 2点
-        else:
-            score += own_stones * 1.5  # 相手の手: 自分の石1個 = 1.5点（少し低く）
-        
-        # 2-1. アクセスライン上に自分の石と相手の石が混在する場合の減点
-        opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
-        if own_stones > 0 and opponent_stones > 0:  # 自分の石と相手の石が混在
-            if is_my_turn:
-                score -= opponent_stones * 2  # 自分の手: 相手の石1個 = 2点減点
-            else:
-                score -= opponent_stones * 1.5  # 相手の手: 相手の石1個 = 1.5点減点
-        
-        # 2-2. アクセスライン上に相手の石しかない場合の段階的加点
-        if own_stones == 0 and opponent_stones > 0:  # 相手の石のみ
+        # 2-2. 相手のアクセスライン上の相手の石の数による段階的加点
+        opponent_stones = self.count_stones_in_directions(board, x, y, z, opponent_accessible, 3 - player)
+        if opponent_stones > 0:  # 相手の石のみ
             # 1つ目は2点、2つ目は4点（合計6点）、3つ目は6点（合計12点）
             for i in range(opponent_stones):
                 if is_my_turn:
-                    score += (i + 1) * 2  # 自分の手: 段階的加点
+                    score += (i + 1) * 2 * decay_rate  # 自分の手: 段階的加点 * 減衰率
                 else:
-                    score += (i + 1) * 1.5  # 相手の手: 段階的加点（少し低く）
+                    score += (i + 1) * 2 * decay_rate  # 相手の手: 段階的加点 * 減衰率
+        
+        # 2-3. 混在ライン上の石による加点・減点
+        mixed_my_stones = self.count_stones_in_directions(board, x, y, z, mixed, player)
+        mixed_opponent_stones = self.count_stones_in_directions(board, x, y, z, mixed, 3 - player)
+        
+        # 自分の石による加点
+        if mixed_my_stones > 0:
+            if is_my_turn:
+                score += mixed_my_stones * 2 * decay_rate  # 自分の手: 自分の石1個 = 2点加点 * 減衰率
+            else:
+                score += mixed_my_stones * 2 * decay_rate  # 相手の手: 自分の石1個 = 2点加点 * 減衰率
+        
+        # 相手の石による減点
+        if mixed_opponent_stones > 0:
+            if is_my_turn:
+                score -= mixed_opponent_stones * 2 * decay_rate  # 自分の手: 相手の石1個 = 2点減点 * 減衰率
+            else:
+                score -= mixed_opponent_stones * 2 * decay_rate  # 相手の手: 相手の石1個 = 2点減点 * 減衰率
         
         # 3. 角と中央の4マスの位置ボーナス
         if (x == 0 or x == 3) and (y == 0 or y == 3):  # 角の4マス
             if is_my_turn:
-                score += 2  # 自分の手: 角 = 2点ボーナス
+                score += 2 * decay_rate  # 自分の手: 角 = 2点ボーナス * 減衰率
             else:
-                score += 1.5  # 相手の手: 角 = 1.5点ボーナス
+                score += 2 * decay_rate  # 相手の手: 角 = 2点ボーナス * 減衰率
         elif (x == 1 or x == 2) and (y == 1 or y == 2):  # 中央の4マス
             if is_my_turn:
-                score += 2  # 自分の手: 中央 = 2点ボーナス
+                score += 2 * decay_rate  # 自分の手: 中央 = 2点ボーナス * 減衰率
             else:
-                score += 1.5  # 相手の手: 中央 = 1.5点ボーナス
+                score += 2 * decay_rate  # 相手の手: 中央 = 2点ボーナス * 減衰率
         
         # 4. ダブルリーチ報酬（自分の石が2個以上あるラインが複数ある場合）
         double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
         if double_reach_lines >= 2:  # 2個目以降は100点加点
             for i in range(1, double_reach_lines):  # 2個目から計算
                 if is_my_turn:
-                    score += 100  # 自分の手: 2個目以降=100点
+                    score += 100 * decay_rate  # 自分の手: 2個目以降=100点 * 減衰率
                 else:
-                    score += 80   # 相手の手: 2個目以降=80点（少し低く）
+                    score += 100 * decay_rate   # 相手の手: 2個目以降=100点 * 減衰率
         
         # 5. ダブルリーチ妨害（相手の石が2個以上あるラインが複数ある場合）
         opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
         if opponent_double_reach_lines >= 2:  # 2個目以降は100点加点
             for i in range(1, opponent_double_reach_lines):  # 2個目から計算
                 if is_my_turn:
-                    score += 100  # 自分の手: 2個目以降=100点
+                    score += 100 * decay_rate  # 自分の手: 2個目以降=100点 * 減衰率
                 else:
-                    score += 80   # 相手の手: 2個目以降=80点（少し低く）
+                    score += 100 * decay_rate   # 相手の手: 2個目以降=100点 * 減衰率
         
         # 6. 罠回避（統合版：勝利手と最大点数を100点換算で減点）
         opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
@@ -698,17 +778,17 @@ class MyAI(Alg3D):
         # 勝利手がある場合は大幅減点
         if opponent_winning_moves > 0:
             if is_my_turn:
-                score -= opponent_winning_moves * 100  # 自分の手: 相手の勝利手1個 = 100点減点
+                score -= opponent_winning_moves * 100 * decay_rate  # 自分の手: 相手の勝利手1個 = 100点減点 * 減衰率
             else:
-                score -= opponent_winning_moves * 80   # 相手の手: 相手の勝利手1個 = 80点減点（少し低く）
+                score -= opponent_winning_moves * 100 * decay_rate   # 相手の手: 相手の勝利手1個 = 100点減点 * 減衰率
         else:
             # 再帰を避けるため、depth制限内でのみ最大点数を計算
             if depth < 2:
                 opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
                 if is_my_turn:
-                    score -= opponent_max_score * 0.5  # 自分の手: 相手の最大点数 * 0.5を減点
+                    score -= opponent_max_score * 0.5 * decay_rate  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
                 else:
-                    score -= opponent_max_score * 0.4   # 相手の手: 相手の最大点数 * 0.4を減点（少し低く）
+                    score -= opponent_max_score * 0.5 * decay_rate   # 相手の手: 相手の最大点数 * 0.5を減点 * 減衰率
         
         return score
     
