@@ -210,7 +210,7 @@ class MyAI(Alg3D):
         
         best_line_move = self.find_highest_line_access_move(board, player)
         if best_line_move and best_line_move == move:
-            score = self.evaluate_position(board, move[0], move[1], self.get_height(board, move[0], move[1]), player)
+            score = self.evaluate_position(board, move[0], move[1], self.get_height(board, move[0], move[1]), player, 0)
             print(f"🎯 理由: 最高重み点数 ({score}点)")
             return
         
@@ -343,19 +343,25 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 6. 罠回避
-        print("\n6️⃣ 罠回避 (相手の勝利手1個=50点減点):")
+        # 6. 罠回避（統合版）
+        print("\n6️⃣ 罠回避 (勝利手1個=100点減点, 最大点数*0.5):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
                     opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
+                    opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player)
+                    
                     if opponent_winning_moves > 0:
-                        penalty = opponent_winning_moves * 50
+                        penalty = opponent_winning_moves * 100
                         print(f"-{penalty:2d}", end=" ")
                     else:
-                        print("  0", end=" ")
+                        penalty = int(opponent_max_score * 0.5)
+                        if penalty > 0:
+                            print(f"-{penalty:2d}", end=" ")
+                        else:
+                            print("  0", end=" ")
                 else:
                     print(" .", end=" ")
             print()
@@ -367,7 +373,7 @@ class MyAI(Alg3D):
             for x in range(4):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
-                    score = self.evaluate_position(board, x, y, z, player)
+                    score = self.evaluate_position(board, x, y, z, player, 0)
                     print(f"{int(score):2d}", end=" ")
                 else:
                     print(" .", end=" ")
@@ -665,9 +671,33 @@ class MyAI(Alg3D):
         
         return winning_moves_count
     
-    def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+    def get_opponent_max_score_after_my_move(self, board: Board, x: int, y: int, z: int, player: int, depth: int = 0) -> int:
+        """指定位置に自分の石を置いた後、相手が得られる最大点数を取得"""
+        opponent = 3 - player
+        
+        # 仮想的に自分の石を置く
+        temp_board = [[[board[z][y][x] for x in range(4)] for y in range(4)] for z in range(4)]
+        temp_board[z][y][x] = player
+        
+        # 相手が得られる最大点数を計算
+        max_score = -1
+        
+        for opp_x in range(4):
+            for opp_y in range(4):
+                if self.can_place_stone(temp_board, opp_x, opp_y):
+                    opp_z = self.get_height(temp_board, opp_x, opp_y)
+                    score = self.evaluate_position(temp_board, opp_x, opp_y, opp_z, opponent, depth)
+                    max_score = max(max_score, score)
+        
+        return max_score if max_score > -1 else 0
+    
+    def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int, depth: int = 0) -> int:
         """指定位置の重み（点数）を計算"""
         score = 0
+        
+        # 再帰の深さ制限（2手先まで）
+        if depth >= 2:
+            return score
         
         # 1. アクセス可能なライン数による基本点
         lines = self.count_potential_lines(board, x, y, z, player)
@@ -706,10 +736,17 @@ class MyAI(Alg3D):
             for i in range(1, opponent_double_reach_lines):  # 2個目から計算
                 score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
         
-        # 6. 罠回避（次の相手の手で勝利の選択肢を与えてしまう場合の減点）
+        # 6. 罠回避（統合版：勝利手と最大点数を100点換算で減点）
         opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
+        
+        # 勝利手がある場合は大幅減点
         if opponent_winning_moves > 0:
-            score -= opponent_winning_moves * 50  # 相手の勝利手1個 = 50点減点
+            score -= opponent_winning_moves * 100  # 相手の勝利手1個 = 100点減点
+        else:
+            # 再帰を避けるため、depth制限内でのみ最大点数を計算
+            if depth < 2:
+                opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
+                score -= opponent_max_score * 0.5  # 相手の最大点数 * 0.5を減点
         
         return score
     
@@ -722,7 +759,7 @@ class MyAI(Alg3D):
             for y in range(4):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
-                    score = self.evaluate_position(board, x, y, z, player)
+                    score = self.evaluate_position(board, x, y, z, player, 0)
                     
                     if score > max_score:
                         max_score = score
