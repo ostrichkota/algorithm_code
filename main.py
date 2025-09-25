@@ -1,6 +1,6 @@
 from typing import List, Tuple
-from local_driver import Alg3D, Board # ローカル検証用
-# from framework import Alg3D, Board # 本番用
+# from local_driver import Alg3D, Board # ローカル検証用
+from framework import Alg3D, Board # 本番用
 
 class MyAI(Alg3D):
     def get_move(
@@ -15,6 +15,12 @@ class MyAI(Alg3D):
         
         # 可視化: 各マスのアクセス可能ライン数を表示
         self.print_line_accessibility(board, player)
+        
+        # 可視化: 各マスの重み（点数）を表示
+        self.print_position_scores(board, player)
+        
+        # 可視化: 各マスで妨害できる相手の石数を表示
+        self.print_opponent_interference(board, player)
         
         # 基本的なAIアルゴリズムを実装
         move = self.find_best_move(board, player)
@@ -204,11 +210,27 @@ class MyAI(Alg3D):
         
         best_line_move = self.find_highest_line_access_move(board, player)
         if best_line_move and best_line_move == move:
-            lines = self.count_potential_lines(board, move[0], move[1], self.get_height(board, move[0], move[1]), player)
-            print(f"📊 理由: 最高ラインアクセス ({lines}本)")
+            score = self.evaluate_position(board, move[0], move[1], self.get_height(board, move[0], move[1]), player)
+            print(f"🎯 理由: 最高重み点数 ({score}点)")
             return
         
         print("📍 理由: フォールバック")
+    
+    def print_position_scores(self, board: Board, player: int) -> None:
+        """各マスの重み（点数）を表示"""
+        print(f"\n🎯 プレイヤー{player}の各マス重み（点数）:")
+        print("  x→   0 1 2 3    （値＝重み点数）")
+        
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
+                    score = self.evaluate_position(board, x, y, z, player)
+                    print(f"{int(score):2d}", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
     
     def find_best_move(self, board: Board, player: int):
         """最適な手を見つける"""
@@ -231,22 +253,125 @@ class MyAI(Alg3D):
         # 4. 空いている最初の位置に置く
         return self.find_first_available_move(board)
     
+    def count_opponent_stones_in_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置に石を置いた時に、アクセスできるライン上の相手の石の数をカウント"""
+        opponent = 3 - player
+        opponent_stones = 0
+        
+        # 13方向の直線をチェック
+        directions = [
+            (1, 0, 0),   # x軸方向
+            (0, 1, 0),   # y軸方向
+            (0, 0, 1),   # z軸方向
+            (1, 1, 0),   # xy対角線
+            (1, 0, 1),   # xz対角線
+            (0, 1, 1),   # yz対角線
+            (1, 1, 1),   # xyz対角線
+            (1, -1, 0),  # xy逆対角線
+            (1, 0, -1),  # xz逆対角線
+            (0, 1, -1),  # yz逆対角線
+            (1, -1, -1), # xyz逆対角線
+            (1, 1, -1),  # xy正、z負対角線
+            (1, -1, 1),  # xy負、z正対角線
+        ]
+        
+        for dx, dy, dz in directions:
+            # 正方向の最大距離と障害物チェック
+            max_pos = 0
+            for i in range(1, 4):
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 他のプレイヤーの石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                        break
+                    max_pos = i
+                else:
+                    break
+            
+            # 負方向の最大距離と障害物チェック
+            max_neg = 0
+            for i in range(1, 4):
+                nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    # 他のプレイヤーの石がある場合はラインを断ち切る
+                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
+                        break
+                    max_neg = i
+                else:
+                    break
+            
+            # 合計で4つ以上並べるかチェック
+            if max_pos + max_neg + 1 >= 4:
+                # このライン上で相手の石をカウント
+                for i in range(-max_neg, max_pos + 1):
+                    if i == 0:
+                        continue  # 自分の位置はスキップ
+                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                        if board[nz][ny][nx] == opponent:
+                            opponent_stones += 1
+        
+        return opponent_stones
+    
+    def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置の重み（点数）を計算"""
+        score = 0
+        
+        # 1. アクセス可能なライン数による基本点
+        lines = self.count_potential_lines(board, x, y, z, player)
+        score += lines * 10  # 1ライン = 10点
+        
+        # 2. 中央性によるボーナス点
+        center_distance = abs(x - 1.5) + abs(y - 1.5)
+        center_bonus = max(0, 4 - center_distance)  # 中央ほど高い
+        score += center_bonus * 5  # 中央性 = 5点
+        
+        # 3. 高さによるボーナス点（高い位置ほど有利）
+        height_bonus = z * 3  # 高さ = 3点
+        score += height_bonus
+        
+        # 4. 角の位置によるボーナス点
+        if (x == 0 or x == 3) and (y == 0 or y == 3):
+            score += 15  # 角 = 15点ボーナス
+        
+        # 5. 相手の石を妨害する補正点
+        opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
+        score += opponent_stones * 8  # 相手の石1個 = 8点ボーナス
+        
+        return score
+    
     def find_highest_line_access_move(self, board: Board, player: int):
-        """最もアクセス可能なライン数が多い位置を探す"""
+        """最も高い重み（点数）の位置を探す"""
         best_move = None
-        max_lines = -1
+        max_score = -1
         
         for x in range(4):
             for y in range(4):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
-                    lines = self.count_potential_lines(board, x, y, z, player)
+                    score = self.evaluate_position(board, x, y, z, player)
                     
-                    if lines > max_lines:
-                        max_lines = lines
+                    if score > max_score:
+                        max_score = score
                         best_move = (x, y)
         
         return best_move
+    
+    def print_opponent_interference(self, board: Board, player: int) -> None:
+        """各マスで妨害できる相手の石数を表示"""
+        print(f"\n🚫 プレイヤー{player}の各マスで妨害できる相手の石数:")
+        print("  x→   0 1 2 3    （値＝妨害できる相手の石数）")
+        
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
+                    opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
+                    print(f"{opponent_stones:2d}", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
     
     def find_winning_move(self, board: Board, player: int):
         """勝利できる手を探す"""
