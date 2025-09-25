@@ -1,6 +1,6 @@
 from typing import List, Tuple
-from local_driver import Alg3D, Board # ローカル検証用
-# from framework import Alg3D, Board # 本番用
+# from local_driver import Alg3D, Board # ローカル検証用
+from framework import Alg3D, Board # 本番用
 
 class MyAI(Alg3D):
     def get_move(
@@ -232,7 +232,7 @@ class MyAI(Alg3D):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
                     lines = self.count_potential_lines(board, x, y, z, player)
-                    print(f"{lines*10:2d}", end=" ")
+                    print(f"{lines*2:2d}", end=" ")
                 else:
                     print(" .", end=" ")
             print()
