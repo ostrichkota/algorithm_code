@@ -343,7 +343,24 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 6. 合計
+        # 6. 罠回避
+        print("\n6️⃣ 罠回避 (相手の勝利手1個=50点減点):")
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
+                    opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
+                    if opponent_winning_moves > 0:
+                        penalty = opponent_winning_moves * 50
+                        print(f"-{penalty:2d}", end=" ")
+                    else:
+                        print("  0", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
+        
+        # 7. 合計
         print("\n🎯 合計点数:")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
@@ -623,6 +640,31 @@ class MyAI(Alg3D):
         
         return opponent_double_reach_lines
     
+    def check_opponent_winning_moves_after_my_move(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置に自分の石を置いた後、相手が勝利できる手の数をカウント"""
+        opponent = 3 - player
+        
+        # 仮想的に自分の石を置く
+        temp_board = [[[board[z][y][x] for x in range(4)] for y in range(4)] for z in range(4)]
+        temp_board[z][y][x] = player
+        
+        # 相手が勝利できる手の数をカウント
+        winning_moves_count = 0
+        
+        for opp_x in range(4):
+            for opp_y in range(4):
+                if self.can_place_stone(temp_board, opp_x, opp_y):
+                    opp_z = self.get_height(temp_board, opp_x, opp_y)
+                    
+                    # 仮想的に相手の石を置いてみる
+                    temp_board2 = [[[temp_board[z][y][x] for x in range(4)] for y in range(4)] for z in range(4)]
+                    temp_board2[opp_z][opp_y][opp_x] = opponent
+                    
+                    if self.check_win(temp_board2, opp_x, opp_y, opp_z, opponent):
+                        winning_moves_count += 1
+        
+        return winning_moves_count
+    
     def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置の重み（点数）を計算"""
         score = 0
@@ -663,6 +705,11 @@ class MyAI(Alg3D):
         if opponent_double_reach_lines >= 2:  # 2個目以降は2n点加点
             for i in range(1, opponent_double_reach_lines):  # 2個目から計算
                 score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
+        
+        # 6. 罠回避（次の相手の手で勝利の選択肢を与えてしまう場合の減点）
+        opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
+        if opponent_winning_moves > 0:
+            score -= opponent_winning_moves * 50  # 相手の勝利手1個 = 50点減点
         
         return score
     
