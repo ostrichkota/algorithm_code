@@ -237,72 +237,58 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 2. アクセスライン上の自分の石の数
-        print("\n2️⃣ アクセスライン上の自分の石の数 (1石=2点):")
+        # 2. 中央性
+        print("\n2️⃣ 中央性 (中央ほど高い, 最大20点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
                 if self.can_place_stone(board, x, y):
-                    z = self.get_height(board, x, y)
-                    own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
-                    print(f"{own_stones*2:2d}", end=" ")
+                    center_distance = abs(x - 1.5) + abs(y - 1.5)
+                    center_bonus = max(0, 4 - center_distance) * 5
+                    print(f"{int(center_bonus):2d}", end=" ")
                 else:
                     print(" .", end=" ")
             print()
         
-        # 2-1. 混在時の相手石による減点
-        print("\n2️⃣-1 混在時の相手石による減点 (1石=2点減点):")
+        # 3. 高さ
+        print("\n3️⃣ 高さ (1段階=3点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
-                    own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
+                    height_bonus = z * 3
+                    print(f"{height_bonus:2d}", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
+        
+        # 4. 角の位置
+        print("\n4️⃣ 角の位置 (角=15点ボーナス):")
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    corner_bonus = 15 if (x == 0 or x == 3) and (y == 0 or y == 3) else 0
+                    print(f"{corner_bonus:2d}", end=" ")
+                else:
+                    print(" .", end=" ")
+            print()
+        
+        # 5. 相手妨害
+        print("\n5️⃣ 相手妨害 (相手の石1個=8点):")
+        for y in range(3, -1, -1):
+            print(f"y={y} |", end=" ")
+            for x in range(4):
+                if self.can_place_stone(board, x, y):
+                    z = self.get_height(board, x, y)
                     opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
-                    if own_stones > 0 and opponent_stones > 0:
-                        penalty = opponent_stones * 2
-                        print(f"-{penalty:2d}", end=" ")
-                    else:
-                        print("  0", end=" ")
+                    print(f"{opponent_stones*8:2d}", end=" ")
                 else:
                     print(" .", end=" ")
             print()
         
-        # 2-2. 相手の石のみの場合の加点
-        print("\n2️⃣-2 相手の石のみの場合の加点 (1石=2点加点):")
-        for y in range(3, -1, -1):
-            print(f"y={y} |", end=" ")
-            for x in range(4):
-                if self.can_place_stone(board, x, y):
-                    z = self.get_height(board, x, y)
-                    own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
-                    opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
-                    if own_stones == 0 and opponent_stones > 0:
-                        bonus = opponent_stones * 2
-                        print(f"+{bonus:2d}", end=" ")
-                    else:
-                        print("  0", end=" ")
-                else:
-                    print(" .", end=" ")
-            print()
-        
-        # 3. 角と中央の4マスの位置ボーナス
-        print("\n3️⃣ 角と中央の4マスの位置ボーナス (2点):")
-        for y in range(3, -1, -1):
-            print(f"y={y} |", end=" ")
-            for x in range(4):
-                if self.can_place_stone(board, x, y):
-                    if (x == 0 or x == 3) and (y == 0 or y == 3):  # 角の4マス
-                        print("  2", end=" ")
-                    elif (x == 1 or x == 2) and (y == 1 or y == 2):  # 中央の4マス
-                        print("  2", end=" ")
-                    else:
-                        print("  0", end=" ")
-                else:
-                    print(" .", end=" ")
-            print()
-        
-        # 4. 合計
+        # 6. 合計
         print("\n🎯 合計点数:")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
@@ -396,65 +382,6 @@ class MyAI(Alg3D):
         
         return opponent_stones
     
-    def count_own_stones_in_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
-        """指定位置に石を置いた時に、アクセスできるライン上の自分の石の数をカウント"""
-        own_stones = 0
-        
-        # 13方向の直線をチェック
-        directions = [
-            (1, 0, 0),   # x軸方向
-            (0, 1, 0),   # y軸方向
-            (0, 0, 1),   # z軸方向
-            (1, 1, 0),   # xy対角線
-            (1, 0, 1),   # xz対角線
-            (0, 1, 1),   # yz対角線
-            (1, 1, 1),   # xyz対角線
-            (1, -1, 0),  # xy逆対角線
-            (1, 0, -1),  # xz逆対角線
-            (0, 1, -1),  # yz逆対角線
-            (1, -1, -1), # xyz逆対角線
-            (1, 1, -1),  # xy正、z負対角線
-            (1, -1, 1),  # xy負、z正対角線
-        ]
-        
-        for dx, dy, dz in directions:
-            # 正方向の最大距離と障害物チェック
-            max_pos = 0
-            for i in range(1, 4):
-                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                    # 他のプレイヤーの石がある場合はラインを断ち切る
-                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
-                        break
-                    max_pos = i
-                else:
-                    break
-            
-            # 負方向の最大距離と障害物チェック
-            max_neg = 0
-            for i in range(1, 4):
-                nx, ny, nz = x - i*dx, y - i*dy, z - i*dz
-                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                    # 他のプレイヤーの石がある場合はラインを断ち切る
-                    if board[nz][ny][nx] != 0 and board[nz][ny][nx] != player:
-                        break
-                    max_neg = i
-                else:
-                    break
-            
-            # 合計で4つ以上並べるかチェック
-            if max_pos + max_neg + 1 >= 4:
-                # このライン上で自分の石をカウント
-                for i in range(-max_neg, max_pos + 1):
-                    if i == 0:
-                        continue  # 自分の位置はスキップ
-                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                        if board[nz][ny][nx] == player:
-                            own_stones += 1
-        
-        return own_stones
-    
     def evaluate_position(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置の重み（点数）を計算"""
         score = 0
@@ -463,24 +390,22 @@ class MyAI(Alg3D):
         lines = self.count_potential_lines(board, x, y, z, player)
         score += lines * 10  # 1ライン = 10点
         
-        # 2. アクセスライン上の自分の石の数加点（石の数*2）
-        own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
-        score += own_stones * 2  # 自分の石1個 = 2点
+        # 2. 中央性によるボーナス点
+        center_distance = abs(x - 1.5) + abs(y - 1.5)
+        center_bonus = max(0, 4 - center_distance)  # 中央ほど高い
+        score += center_bonus * 5  # 中央性 = 5点
         
-        # 2-1. アクセスライン上に自分の石と相手の石が混在する場合の減点
+        # 3. 高さによるボーナス点（高い位置ほど有利）
+        height_bonus = z * 3  # 高さ = 3点
+        score += height_bonus
+        
+        # 4. 角の位置によるボーナス点
+        if (x == 0 or x == 3) and (y == 0 or y == 3):
+            score += 15  # 角 = 15点ボーナス
+        
+        # 5. 相手の石を妨害する補正点
         opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
-        if own_stones > 0 and opponent_stones > 0:  # 自分の石と相手の石が混在
-            score -= opponent_stones * 2  # 相手の石1個 = 2点減点
-        
-        # 2-2. アクセスライン上に相手の石しかない場合の加点
-        if own_stones == 0 and opponent_stones > 0:  # 相手の石のみ
-            score += opponent_stones * 2  # 相手の石1個 = 2点加点
-        
-        # 3. 角と中央の4マスの位置ボーナス
-        if (x == 0 or x == 3) and (y == 0 or y == 3):  # 角の4マス
-            score += 2  # 角 = 2点ボーナス
-        elif (x == 1 or x == 2) and (y == 1 or y == 2):  # 中央の4マス
-            score += 2  # 中央 = 2点ボーナス
+        score += opponent_stones * 8  # 相手の石1個 = 8点ボーナス
         
         return score
     
