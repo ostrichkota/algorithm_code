@@ -343,8 +343,8 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 6. 罠回避（統合版）
-        print("\n6️⃣ 罠回避 (勝利手1個=100点減点, 最大点数*0.5):")
+        # 6. 罠回避（統合版・depth別重み）
+        print("\n6️⃣ 罠回避 (自分の手:勝利手100点減点,最大点数*0.5 / 相手の手:勝利手80点減点,最大点数*0.4):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
@@ -354,10 +354,10 @@ class MyAI(Alg3D):
                     opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player)
                     
                     if opponent_winning_moves > 0:
-                        penalty = opponent_winning_moves * 100
+                        penalty = opponent_winning_moves * 100  # 自分の手の重みで表示
                         print(f"-{penalty:2d}", end=" ")
                     else:
-                        penalty = int(opponent_max_score * 0.5)
+                        penalty = int(opponent_max_score * 0.5)  # 自分の手の重みで表示
                         if penalty > 0:
                             print(f"-{penalty:2d}", end=" ")
                         else:
@@ -699,54 +699,87 @@ class MyAI(Alg3D):
         if depth >= 2:
             return score
         
+        # depth別の重み設定
+        is_my_turn = (depth % 2 == 0)  # 自分の手（depth偶数）か相手の手（depth奇数）か
+        
         # 1. アクセス可能なライン数による基本点
         lines = self.count_potential_lines(board, x, y, z, player)
-        score += lines * 10  # 1ライン = 10点
+        if is_my_turn:
+            score += lines * 2  # 自分の手: 1ライン = 2点
+        else:
+            score += lines * 2   # 相手の手: 1ライン = 2点（同じ重み）
         
         # 2. アクセスライン上の自分の石の数加点（石の数*2）
         own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
-        score += own_stones * 2  # 自分の石1個 = 2点
+        if is_my_turn:
+            score += own_stones * 2  # 自分の手: 自分の石1個 = 2点
+        else:
+            score += own_stones * 1.5  # 相手の手: 自分の石1個 = 1.5点（少し低く）
         
         # 2-1. アクセスライン上に自分の石と相手の石が混在する場合の減点
         opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
         if own_stones > 0 and opponent_stones > 0:  # 自分の石と相手の石が混在
-            score -= opponent_stones * 2  # 相手の石1個 = 2点減点
+            if is_my_turn:
+                score -= opponent_stones * 2  # 自分の手: 相手の石1個 = 2点減点
+            else:
+                score -= opponent_stones * 1.5  # 相手の手: 相手の石1個 = 1.5点減点
         
         # 2-2. アクセスライン上に相手の石しかない場合の段階的加点
         if own_stones == 0 and opponent_stones > 0:  # 相手の石のみ
             # 1つ目は2点、2つ目は4点（合計6点）、3つ目は6点（合計12点）
             for i in range(opponent_stones):
-                score += (i + 1) * 2  # 段階的加点
+                if is_my_turn:
+                    score += (i + 1) * 2  # 自分の手: 段階的加点
+                else:
+                    score += (i + 1) * 1.5  # 相手の手: 段階的加点（少し低く）
         
         # 3. 角と中央の4マスの位置ボーナス
         if (x == 0 or x == 3) and (y == 0 or y == 3):  # 角の4マス
-            score += 2  # 角 = 2点ボーナス
+            if is_my_turn:
+                score += 2  # 自分の手: 角 = 2点ボーナス
+            else:
+                score += 1.5  # 相手の手: 角 = 1.5点ボーナス
         elif (x == 1 or x == 2) and (y == 1 or y == 2):  # 中央の4マス
-            score += 2  # 中央 = 2点ボーナス
+            if is_my_turn:
+                score += 2  # 自分の手: 中央 = 2点ボーナス
+            else:
+                score += 1.5  # 相手の手: 中央 = 1.5点ボーナス
         
         # 4. ダブルリーチ報酬（自分の石が2個以上あるラインが複数ある場合）
         double_reach_lines = self.count_double_reach_lines(board, x, y, z, player)
         if double_reach_lines >= 2:  # 2個目以降は2n点加点
             for i in range(1, double_reach_lines):  # 2個目から計算
-                score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
+                if is_my_turn:
+                    score += 2 * (i + 1)  # 自分の手: 2個目=4点, 3個目=6点, 4個目=8点...
+                else:
+                    score += 1.5 * (i + 1)  # 相手の手: 2個目=3点, 3個目=4.5点, 4個目=6点...
         
         # 5. ダブルリーチ妨害（相手の石が2個以上あるラインが複数ある場合）
         opponent_double_reach_lines = self.count_opponent_double_reach_lines(board, x, y, z, player)
         if opponent_double_reach_lines >= 2:  # 2個目以降は2n点加点
             for i in range(1, opponent_double_reach_lines):  # 2個目から計算
-                score += 2 * (i + 1)  # 2個目=4点, 3個目=6点, 4個目=8点...
+                if is_my_turn:
+                    score += 2 * (i + 1)  # 自分の手: 2個目=4点, 3個目=6点, 4個目=8点...
+                else:
+                    score += 1.5 * (i + 1)  # 相手の手: 2個目=3点, 3個目=4.5点, 4個目=6点...
         
         # 6. 罠回避（統合版：勝利手と最大点数を100点換算で減点）
         opponent_winning_moves = self.check_opponent_winning_moves_after_my_move(board, x, y, z, player)
         
         # 勝利手がある場合は大幅減点
         if opponent_winning_moves > 0:
-            score -= opponent_winning_moves * 100  # 相手の勝利手1個 = 100点減点
+            if is_my_turn:
+                score -= opponent_winning_moves * 100  # 自分の手: 相手の勝利手1個 = 100点減点
+            else:
+                score -= opponent_winning_moves * 80   # 相手の手: 相手の勝利手1個 = 80点減点（少し低く）
         else:
             # 再帰を避けるため、depth制限内でのみ最大点数を計算
             if depth < 2:
                 opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
-                score -= opponent_max_score * 0.5  # 相手の最大点数 * 0.5を減点
+                if is_my_turn:
+                    score -= opponent_max_score * 0.5  # 自分の手: 相手の最大点数 * 0.5を減点
+                else:
+                    score -= opponent_max_score * 0.4   # 相手の手: 相手の最大点数 * 0.4を減点（少し低く）
         
         return score
     
