@@ -99,9 +99,9 @@ class MyAI(Alg3D):
         
         return accessible_lines
     
-    def count_potential_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
-        """指定位置に石を置いた時に、4つ並ぶ可能性があるライン数をカウント"""
-        potential_lines = 0
+    def get_accessible_directions(self, board: Board, x: int, y: int, z: int, player: int) -> List[Tuple[int, int, int]]:
+        """指定位置に石を置いた時に、アクセス可能な方向の配列を返す"""
+        accessible_directions = []
         
         # 13方向の直線をチェック
         directions = [
@@ -121,9 +121,6 @@ class MyAI(Alg3D):
         ]
         
         for dx, dy, dz in directions:
-            # この方向に4つ並ぶ可能性があるかチェック
-            can_form_line = True
-            
             # 正方向の最大距離と障害物チェック
             max_pos = 0
             for i in range(1, 4):
@@ -150,9 +147,13 @@ class MyAI(Alg3D):
             
             # 合計で4つ以上並べるかチェック
             if max_pos + max_neg + 1 >= 4:
-                potential_lines += 1
+                accessible_directions.append((dx, dy, dz))
         
-        return potential_lines
+        return accessible_directions
+    
+    def count_potential_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
+        """指定位置に石を置いた時に、4つ並ぶ可能性があるライン数をカウント"""
+        return len(self.get_accessible_directions(board, x, y, z, player))
     
     def print_line_accessibility(self, board: Board, player: int) -> None:
         """各マスに置いた時のアクセス可能ライン数を表示"""
@@ -400,25 +401,9 @@ class MyAI(Alg3D):
         """指定位置に石を置いた時に、アクセスできるライン上の相手の石の数をカウント"""
         opponent = 3 - player
         opponent_stones = 0
+        accessible_directions = self.get_accessible_directions(board, x, y, z, player)
         
-        # 13方向の直線をチェック
-        directions = [
-            (1, 0, 0),   # x軸方向
-            (0, 1, 0),   # y軸方向
-            (0, 0, 1),   # z軸方向
-            (1, 1, 0),   # xy対角線
-            (1, 0, 1),   # xz対角線
-            (0, 1, 1),   # yz対角線
-            (1, 1, 1),   # xyz対角線
-            (1, -1, 0),  # xy逆対角線
-            (1, 0, -1),  # xz逆対角線
-            (0, 1, -1),  # yz逆対角線
-            (1, -1, -1), # xyz逆対角線
-            (1, 1, -1),  # xy正、z負対角線
-            (1, -1, 1),  # xy負、z正対角線
-        ]
-        
-        for dx, dy, dz in directions:
+        for dx, dy, dz in accessible_directions:
             # 正方向の最大距離と障害物チェック
             max_pos = 0
             for i in range(1, 4):
@@ -443,41 +428,23 @@ class MyAI(Alg3D):
                 else:
                     break
             
-            # 合計で4つ以上並べるかチェック
-            if max_pos + max_neg + 1 >= 4:
-                # このライン上で相手の石をカウント
-                for i in range(-max_neg, max_pos + 1):
-                    if i == 0:
-                        continue  # 自分の位置はスキップ
-                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                        if board[nz][ny][nx] == opponent:
-                            opponent_stones += 1
+            # このライン上で相手の石をカウント
+            for i in range(-max_neg, max_pos + 1):
+                if i == 0:
+                    continue  # 自分の位置はスキップ
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    if board[nz][ny][nx] == opponent:
+                        opponent_stones += 1
         
         return opponent_stones
     
     def count_own_stones_in_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置に石を置いた時に、アクセスできるライン上の自分の石の数をカウント"""
         own_stones = 0
+        accessible_directions = self.get_accessible_directions(board, x, y, z, player)
         
-        # 13方向の直線をチェック
-        directions = [
-            (1, 0, 0),   # x軸方向
-            (0, 1, 0),   # y軸方向
-            (0, 0, 1),   # z軸方向
-            (1, 1, 0),   # xy対角線
-            (1, 0, 1),   # xz対角線
-            (0, 1, 1),   # yz対角線
-            (1, 1, 1),   # xyz対角線
-            (1, -1, 0),  # xy逆対角線
-            (1, 0, -1),  # xz逆対角線
-            (0, 1, -1),  # yz逆対角線
-            (1, -1, -1), # xyz逆対角線
-            (1, 1, -1),  # xy正、z負対角線
-            (1, -1, 1),  # xy負、z正対角線
-        ]
-        
-        for dx, dy, dz in directions:
+        for dx, dy, dz in accessible_directions:
             # 正方向の最大距離と障害物チェック
             max_pos = 0
             for i in range(1, 4):
@@ -502,41 +469,23 @@ class MyAI(Alg3D):
                 else:
                     break
             
-            # 合計で4つ以上並べるかチェック
-            if max_pos + max_neg + 1 >= 4:
-                # このライン上で自分の石をカウント
-                for i in range(-max_neg, max_pos + 1):
-                    if i == 0:
-                        continue  # 自分の位置はスキップ
-                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                        if board[nz][ny][nx] == player:
-                            own_stones += 1
+            # このライン上で自分の石をカウント
+            for i in range(-max_neg, max_pos + 1):
+                if i == 0:
+                    continue  # 自分の位置はスキップ
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    if board[nz][ny][nx] == player:
+                        own_stones += 1
         
         return own_stones
     
     def count_double_reach_lines(self, board: Board, x: int, y: int, z: int, player: int) -> int:
         """指定位置に石を置いた時に、自分の石が2個以上あるアクセスライン数をカウント"""
         double_reach_lines = 0
+        accessible_directions = self.get_accessible_directions(board, x, y, z, player)
         
-        # 13方向の直線をチェック
-        directions = [
-            (1, 0, 0),   # x軸方向
-            (0, 1, 0),   # y軸方向
-            (0, 0, 1),   # z軸方向
-            (1, 1, 0),   # xy対角線
-            (1, 0, 1),   # xz対角線
-            (0, 1, 1),   # yz対角線
-            (1, 1, 1),   # xyz対角線
-            (1, -1, 0),  # xy逆対角線
-            (1, 0, -1),  # xz逆対角線
-            (0, 1, -1),  # yz逆対角線
-            (1, -1, -1), # xyz逆対角線
-            (1, 1, -1),  # xy正、z負対角線
-            (1, -1, 1),  # xy負、z正対角線
-        ]
-        
-        for dx, dy, dz in directions:
+        for dx, dy, dz in accessible_directions:
             # 正方向の最大距離と障害物チェック
             max_pos = 0
             for i in range(1, 4):
@@ -561,21 +510,19 @@ class MyAI(Alg3D):
                 else:
                     break
             
-            # 合計で4つ以上並べるかチェック
-            if max_pos + max_neg + 1 >= 4:
-                # このライン上で自分の石をカウント（自分を置く位置も含む）
-                own_count = 1  # 自分を置く位置
-                for i in range(-max_neg, max_pos + 1):
-                    if i == 0:
-                        continue  # 自分の位置は既にカウント済み
-                    nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
-                    if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
-                        if board[nz][ny][nx] == player:
-                            own_count += 1
-                
-                # 自分の石が2個以上あるラインをカウント
-                if own_count >= 2:
-                    double_reach_lines += 1
+            # このライン上で自分の石をカウント（自分を置く位置も含む）
+            own_count = 1  # 自分を置く位置
+            for i in range(-max_neg, max_pos + 1):
+                if i == 0:
+                    continue  # 自分の位置は既にカウント済み
+                nx, ny, nz = x + i*dx, y + i*dy, z + i*dz
+                if 0 <= nx < 4 and 0 <= ny < 4 and 0 <= nz < 4:
+                    if board[nz][ny][nx] == player:
+                        own_count += 1
+            
+            # 自分の石が2個以上あるラインをカウント
+            if own_count >= 2:
+                double_reach_lines += 1
         
         return double_reach_lines
     
@@ -584,24 +531,10 @@ class MyAI(Alg3D):
         opponent = 3 - player
         opponent_double_reach_lines = 0
         
-        # 13方向の直線をチェック
-        directions = [
-            (1, 0, 0),   # x軸方向
-            (0, 1, 0),   # y軸方向
-            (0, 0, 1),   # z軸方向
-            (1, 1, 0),   # xy対角線
-            (1, 0, 1),   # xz対角線
-            (0, 1, 1),   # yz対角線
-            (1, 1, 1),   # xyz対角線
-            (1, -1, 0),  # xy逆対角線
-            (1, 0, -1),  # xz逆対角線
-            (0, 1, -1),  # yz逆対角線
-            (1, -1, -1), # xyz逆対角線
-            (1, 1, -1),  # xy正、z負対角線
-            (1, -1, 1),  # xy負、z正対角線
-        ]
+        # 相手の視点でアクセス可能な方向を取得
+        accessible_directions = self.get_accessible_directions(board, x, y, z, opponent)
         
-        for dx, dy, dz in directions:
+        for dx, dy, dz in accessible_directions:
             # 正方向の最大距離と障害物チェック
             max_pos = 0
             for i in range(1, 4):
