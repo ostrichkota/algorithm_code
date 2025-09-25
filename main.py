@@ -225,7 +225,7 @@ class MyAI(Alg3D):
         print("  x→   0 1 2 3    （値＝各重みの点数）")
         
         # 1. アクセス可能ライン数
-        print("\n1️⃣ アクセス可能ライン数 (1ライン=10点):")
+        print("\n1️⃣ アクセス可能ライン数 (1ライン=2点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
@@ -268,8 +268,8 @@ class MyAI(Alg3D):
                     print(" .", end=" ")
             print()
         
-        # 2-2. 相手の石のみの場合の加点
-        print("\n2️⃣-2 相手の石のみの場合の加点 (1石=2点加点):")
+        # 2-2. 相手の石のみの場合の段階的加点
+        print("\n2️⃣-2 相手の石のみの場合の段階的加点 (1石目=2点, 2石目=4点, 3石目=6点):")
         for y in range(3, -1, -1):
             print(f"y={y} |", end=" ")
             for x in range(4):
@@ -278,7 +278,10 @@ class MyAI(Alg3D):
                     own_stones = self.count_own_stones_in_lines(board, x, y, z, player)
                     opponent_stones = self.count_opponent_stones_in_lines(board, x, y, z, player)
                     if own_stones == 0 and opponent_stones > 0:
-                        bonus = opponent_stones * 2
+                        # 段階的加点の計算
+                        bonus = 0
+                        for i in range(opponent_stones):
+                            bonus += (i + 1) * 2
                         print(f"+{bonus:2d}", end=" ")
                     else:
                         print("  0", end=" ")
@@ -472,9 +475,11 @@ class MyAI(Alg3D):
         if own_stones > 0 and opponent_stones > 0:  # 自分の石と相手の石が混在
             score -= opponent_stones * 2  # 相手の石1個 = 2点減点
         
-        # 2-2. アクセスライン上に相手の石しかない場合の加点
+        # 2-2. アクセスライン上に相手の石しかない場合の段階的加点
         if own_stones == 0 and opponent_stones > 0:  # 相手の石のみ
-            score += opponent_stones * 2  # 相手の石1個 = 2点加点
+            # 1つ目は2点、2つ目は4点（合計6点）、3つ目は6点（合計12点）
+            for i in range(opponent_stones):
+                score += (i + 1) * 2  # 段階的加点
         
         # 3. 角と中央の4マスの位置ボーナス
         if (x == 0 or x == 3) and (y == 0 or y == 3):  # 角の4マス
