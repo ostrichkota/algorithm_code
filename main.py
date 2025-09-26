@@ -724,7 +724,7 @@ class MyAI(Alg3D):
         is_my_turn = (depth % 2 == 0)  # 自分の手（depth偶数）か相手の手（depth奇数）か
         
         # 減衰率の計算
-        decay_rate = 0.8 ** depth  # depth=0: 1.0, depth=1: 0.8
+        decay_rate = 0.95 ** depth  # depth=0: 1.0, depth=1: 0.8
         
         # 1. アクセス可能なライン数による基本点
         lines = self.count_potential_lines(board, x, y, z, player)
@@ -812,9 +812,9 @@ class MyAI(Alg3D):
             if depth < 2:
                 opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
                 if is_my_turn:
-                    score -= opponent_max_score * 0.5 * decay_rate  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
+                    score -= opponent_max_score  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
                 else:
-                    score -= opponent_max_score * 0.5 * decay_rate   # 相手の手: 相手の最大点数 * 0.5を減点 * 減衰率
+                    score -= opponent_max_score   # 相手の手: 相手の最大点数 * 0.5を減点 * 減衰率
         
         # キャッシュに保存
         self._evaluation_cache[cache_key] = score
