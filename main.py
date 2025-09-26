@@ -715,8 +715,8 @@ class MyAI(Alg3D):
         self._cache_misses += 1
         score = 0
         
-        # 再帰の深さ制限（1手先までに短縮してメモリ使用量を削減）
-        if depth >= 1:
+        # 再帰の深さ制限（2手先まで、メモリ効率を保ちつつ探索を維持）
+        if depth >= 2:
             self._evaluation_cache[cache_key] = score
             return score
         
@@ -809,7 +809,7 @@ class MyAI(Alg3D):
                 score -= opponent_winning_moves * 100 * decay_rate   # 相手の手: 相手の勝利手1個 = 100点減点 * 減衰率
         else:
             # 再帰を避けるため、depth制限内でのみ最大点数を計算
-            if depth < 1:
+            if depth < 2:
                 opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
                 if is_my_turn:
                     score -= opponent_max_score * 0.5 * decay_rate  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
