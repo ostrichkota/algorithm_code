@@ -812,9 +812,9 @@ class MyAI(Alg3D):
             if depth < 2:
                 opponent_max_score = self.get_opponent_max_score_after_my_move(board, x, y, z, player, depth + 1)
                 if is_my_turn:
-                    score -= opponent_max_score  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
+                    score -= opponent_max_score  * 0.9  # 自分の手: 相手の最大点数 * 0.5を減点 * 減衰率
                 else:
-                    score -= opponent_max_score   # 相手の手: 相手の最大点数 * 0.5を減点 * 減衰率
+                    score -= opponent_max_score  * 0.9  # 相手の手: 相手の最大点数 * 0.5を減点 * 減衰率
         
         # キャッシュに保存
         self._evaluation_cache[cache_key] = score
