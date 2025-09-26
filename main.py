@@ -311,7 +311,7 @@ class MyAI(Alg3D):
                 if self.can_place_stone(board, x, y):
                     z = self.get_height(board, x, y)
                     lines = self.count_potential_lines(board, x, y, z, player)
-                    print(f"{lines*2:2d}", end=" ")
+                    print(f"{lines*1:2d}", end=" ")
                 else:
                     print(" .", end=" ")
             print()
